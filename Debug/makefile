@@ -8,7 +8,6 @@ RM := clean
 
 # All of the sources participating in the build are defined here
 -include sources.mk
--include functions/subdir.mk
 -include subdir.mk
 -include objects.mk
 
@@ -23,19 +22,19 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: eecs397_nmr_de1soc
+all: ultrasound
 
 # Tool invocations
-eecs397_nmr_de1soc: $(OBJS) $(USER_OBJS)
+ultrasound: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker 4 [arm-linux-gnueabihf]'
-	arm-linux-gnueabihf-gcc  -o "eecs397_nmr_de1soc" $(OBJS) $(USER_OBJS) $(LIBS)
+	arm-linux-gnueabihf-gcc  -o "ultrasound" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(EXECUTABLES) $(OBJS) $(C_DEPS) eecs397_nmr_de1soc 
+	-$(RM) $(EXECUTABLES) $(OBJS) $(C_DEPS) ultrasound 
 	-@echo ' '
 
 .PHONY: all clean dependents

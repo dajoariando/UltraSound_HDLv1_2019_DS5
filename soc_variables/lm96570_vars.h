@@ -1,0 +1,6 @@
+#define LM86570_SPI_RD 1
+#define LM86570_SPI_WR 0
+
+#define REG_1A_LENGTH 		14
+#define REG_00_07_LENGTH 	22
+#define REG_1BA_LENGTH 		8
