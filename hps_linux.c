@@ -119,18 +119,36 @@ void init() {
 	cnt_out_val = CNT_OUT_DEFAULT;
 
 	// turn on the ADC
-	cnt_out_val &= ~ADC_AD9276_STBY_MSK;
-	cnt_out_val &= ~ADC_AD9276_PWDN_MSK;
+	cnt_out_val &= ~ADC_AD9276_STBY_msk;
+	cnt_out_val &= ~ADC_AD9276_PWDN_msk;
+	cnt_out_val |= CLK_EN_msk;
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
 	usleep(100000);
 
+	// turn power on
+	cnt_out_val |= (POS_5V_EN_msk | NEG_5V_EN_msk);
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	//cnt_out_val |= (NEG_48V_EN_msk | POS_48V_EN_msk);
+	//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+
+	cnt_out_val |= CLK_EN_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100000);
+
+	// FSM reset
+	cnt_out_val |= (FSM_RESET_msk);
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	usleep(100);
+	cnt_out_val &= ~(FSM_RESET_msk);
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	usleep(300000);
 
 }
 
 void leave() {
 	// turn of the ADC
-	cnt_out_val |= ADC_AD9276_STBY_MSK;
-	cnt_out_val |= ADC_AD9276_PWDN_MSK;
+	cnt_out_val |= ADC_AD9276_STBY_msk;
+	cnt_out_val |= ADC_AD9276_PWDN_msk;
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
 
     close(fd_dev_mem);
@@ -230,10 +248,10 @@ void write_beamformer_spi (unsigned char spi_reg_length, unsigned char read, uns
 	alt_write_word( h2p_lm96570_spi_in2_addr ,  spi_out2);
 	alt_write_word( h2p_spi_num_of_bits_addr ,  spi_reg_length + 6); // 6 is the command length
 
-	cnt_out_val |= lm96570_start_MSK;
+	cnt_out_val |= BF_SPI_START_msk;
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
 	usleep(10);
-	cnt_out_val &= (~lm96570_start_MSK);
+	cnt_out_val &= (~BF_SPI_START_msk);
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
 
 	*spi_in0 = alt_read_word(h2p_lm96570_spi_out0_addr);
@@ -274,7 +292,7 @@ void init_adc() {
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_CHIP_PORT_CONF_REG, 0b00011000); // reset
 
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_FLEX_GAIN_REG, AD9276_PGA_GAIN_21dB_VAL<<AD9276_PGA_GAIN_SHFT | AD9276_LNA_GAIN_15dB_VAL<<AD9276_LNA_GAIN_SHFT); // set PGA Gain to 21 dB, LNA Gain to 15.6 dB
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_ADJ_REG, AD9276_OUT_ADJ_TERM_200OHM_VAL<<AD9276_OUT_ADJ_TERM_SHFT); // set output driver to 100 ohms
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_ADJ_REG, AD9276_OUT_ADJ_TERM_000OHM_VAL<<AD9276_OUT_ADJ_TERM_SHFT); // set output driver to 100 ohms
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_PHS_REG, AD9276_OUT_PHS_060DEG_VAL); // set phase to 000 degrees
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 
@@ -302,7 +320,7 @@ void init_adc() {
 	//write_ad9276_spi (AD9276_SPI_RD, AD9276_FLEX_GAIN_REG, 0x00);	// check flex_gain of selected channel
 	//write_ad9276_spi (AD9276_SPI_RD, AD9276_OUT_PHS_REG, 0x00);		// check output_phase
 
-
+	usleep(10000);
 }
 
 void old_init_adc() {
@@ -501,11 +519,33 @@ void write_data_bank (unsigned int data_bank[num_of_switches][num_of_channels][n
 	}
 }
 
+void write_data_2d (unsigned int data_bank_2d[num_of_channels][num_of_samples]) {
+	unsigned int jj, kk;
+
+	fptr = fopen("databank.txt", "w");
+		if (fptr == NULL) {
+		printf("File does not exists \n");
+		return;
+	}
+
+	for (jj=0; jj<num_of_channels; jj++) {
+		for (kk=0; kk<num_of_samples; kk++) {
+			fprintf(fptr, "%d,", data_bank_2d[jj][kk] & 0xFFF);
+		}
+		fprintf(fptr, "\n");
+	}
+	fprintf(fptr, "\n");
+
+}
+
 int main (){
 
 	// Initialize system
     init();
-    read_adc_id();
+
+	read_adc_id();
+
+
 
     // init_beamformer();
     // old_init_adc();
@@ -515,9 +555,15 @@ int main (){
     alt_write_word( h2p_adc_samples_per_echo_addr ,  num_of_samples);
 
     unsigned int data_bank[num_of_switches][num_of_channels][num_of_samples];
+    unsigned int data_bank_2d[num_of_channels][num_of_samples];
     unsigned int adc_data [num_of_samples]; // data for 1 acquisition
     char sw_num = 0;
-	for (sw_num=0; sw_num < num_of_switches; sw_num++) {
+
+    usleep(200000);
+
+
+
+	//for (sw_num=0; sw_num < num_of_switches; sw_num++) {
     //while(1){
 
 		// write mux
@@ -534,21 +580,22 @@ int main (){
 		//usleep(100000);
 
 		// pulser on
-		cnt_out_val |= pulser_en_MSK;
-		alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
-		usleep(200000);
+		//cnt_out_val |= PULSER_EN_msk;
+		//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
+		//usleep(200000);
 
 		// tx_enable fire
-		cnt_out_val |= lm96570_tx_en_MSK;
+		cnt_out_val |= BF_TX_EN_msk;
 		alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
-		usleep(100);
-		cnt_out_val &= (~lm96570_tx_en_MSK);
+		usleep(10000);
+		cnt_out_val &= (~BF_TX_EN_msk);
 		alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
+		usleep(10000);
 
 		// pulser off
-		usleep(200000);
-		cnt_out_val &= (~pulser_en_MSK);
-		alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
+		//usleep(200000);
+		//cnt_out_val &= (~PULSER_EN_msk);
+		//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
 
 		read_adc_val(h2p_fifo_sink_ch_a_csr_addr, h2p_fifo_sink_ch_a_data_addr, adc_data);
 		store_data (adc_data, data_bank, sw_num, 0, num_of_samples);
@@ -576,9 +623,20 @@ int main (){
 
 		printf("Completed Event: %d\n",sw_num);
 
-	}
+	//}
 
-	write_data_bank(data_bank);
+	// write_data_bank(data_bank);
+	write_data_2d (data_bank_2d);
+
+	// turn power off
+	cnt_out_val &= ~POS_5V_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	cnt_out_val &= ~NEG_5V_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	cnt_out_val &= ~NEG_48V_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	cnt_out_val &= ~POS_48V_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
 
     // exit program
     leave();
