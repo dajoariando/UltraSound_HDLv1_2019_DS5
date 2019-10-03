@@ -310,10 +310,10 @@ void init_adc() {
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_MODE_REG, AD9276_OUT_MODE_INVERT_EN_MSK); // invert all selected channel
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, 0x00); // reset the testio
 
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_CHCKBOARD_VAL); // select testpattern
-	// write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_USR_INPUT_VAL); // user input test
-	// write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_LSB_REG, 0x13); // user input values
-	// write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_MSB_REG, 0x1); // user input values
+	// write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_10_BITTOG_VAL); // select testpattern
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_USR_INPUT_VAL); // user input test
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_LSB_REG, 0x1); // user input values
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_MSB_REG, 0x0); // user input values
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 
 	//write_ad9276_spi (AD9276_SPI_RD, AD9276_OUT_ADJ_REG, 0x00);		// check output driver termination of selected channel
@@ -489,16 +489,21 @@ void read_adc_val (void *channel_csr_addr, void *channel_data_addr, unsigned int
 
 }
 
-//void store_data (unsigned int * adc_data, unsigned int data_bank[num_of_switches][num_of_channels][num_of_samples], unsigned int sw_num, unsigned int ch_num, unsigned int num_of_samples) {
-void store_data (unsigned int * adc_data, unsigned int data_bank_2d[num_of_channels][num_of_samples], unsigned int sw_num, unsigned int ch_num, unsigned int num_of_samples) {
+void store_data (unsigned int * adc_data, unsigned int data_bank[num_of_switches][num_of_channels][num_of_samples], unsigned int sw_num, unsigned int ch_num, unsigned int num_of_samples) {
 	unsigned int ii;
 	for (ii=0; ii<num_of_samples/2; ii++) {
-		//data_bank[sw_num][ch_num][ii*2] = adc_data[ii] & 0xFFF; // ORIGINAL
-		//data_bank[sw_num][ch_num][ii*2+1] = (adc_data[ii]>>16) & 0xFFF; //ORIGINAL
+		data_bank[sw_num][ch_num][ii*2] = adc_data[ii] & 0xFFF; // ORIGINAL
+		data_bank[sw_num][ch_num][ii*2+1] = (adc_data[ii]>>16) & 0xFFF; //ORIGINAL
+	}
+}
+void store_data_2d (unsigned int * adc_data, unsigned int data_bank_2d[num_of_channels][num_of_samples], unsigned int ch_num, unsigned int num_of_samples) {
+	unsigned int ii;
+	for (ii=0; ii<num_of_samples/2; ii++) {
 		data_bank_2d[ch_num][ii*2] = (adc_data[ii]>>2) & 0xFFF; // SHIFTED FROM ORIGINAL
 		data_bank_2d[ch_num][ii*2+1] = ((adc_data[ii]>>16)>>2) & 0xFFF; //SHIFTED FROM ORIGINAL
 	}
 }
+
 
 void write_data_bank (unsigned int data_bank[num_of_switches][num_of_channels][num_of_samples]) {
 	unsigned int ii, jj, kk;
@@ -547,8 +552,8 @@ int main (){
     // init_beamformer();
 
 	read_adc_id();
-    old_init_adc();
-    // init_adc();
+    // old_init_adc();
+    init_adc();
 
     alt_write_word( h2p_adc_start_pulselength_addr , 10 );
     alt_write_word( h2p_adc_samples_per_echo_addr ,  num_of_samples);
@@ -574,28 +579,28 @@ int main (){
 	//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
 
 	read_adc_val(h2p_fifo_sink_ch_a_csr_addr, h2p_fifo_sink_ch_a_data_addr, adc_data);
-	store_data (adc_data, data_bank, sw_num, 0, num_of_samples);
+	store_data_2d (adc_data, data_bank_2d, 0, num_of_samples);
 
 	read_adc_val(h2p_fifo_sink_ch_b_csr_addr, h2p_fifo_sink_ch_b_data_addr, adc_data);
-	store_data (adc_data, data_bank, sw_num, 1, num_of_samples);
+	store_data_2d (adc_data, data_bank_2d, 1, num_of_samples);
 
 	read_adc_val(h2p_fifo_sink_ch_c_csr_addr, h2p_fifo_sink_ch_c_data_addr, adc_data);
-	store_data (adc_data, data_bank, sw_num, 2, num_of_samples);
+	store_data_2d (adc_data, data_bank_2d, 2, num_of_samples);
 
 	read_adc_val(h2p_fifo_sink_ch_d_csr_addr, h2p_fifo_sink_ch_d_data_addr, adc_data);
-	store_data (adc_data, data_bank, sw_num, 3, num_of_samples);
+	store_data_2d (adc_data, data_bank_2d, 3, num_of_samples);
 
 	read_adc_val(h2p_fifo_sink_ch_e_csr_addr, h2p_fifo_sink_ch_e_data_addr, adc_data);
-	store_data (adc_data, data_bank, sw_num, 4, num_of_samples);
+	store_data_2d (adc_data, data_bank_2d, 4, num_of_samples);
 
 	read_adc_val(h2p_fifo_sink_ch_f_csr_addr, h2p_fifo_sink_ch_f_data_addr, adc_data);
-	store_data (adc_data, data_bank, sw_num, 5, num_of_samples);
+	store_data_2d (adc_data, data_bank_2d, 5, num_of_samples);
 
 	read_adc_val(h2p_fifo_sink_ch_g_csr_addr, h2p_fifo_sink_ch_g_data_addr, adc_data);
-	store_data (adc_data, data_bank, sw_num, 6, num_of_samples);
+	store_data_2d (adc_data, data_bank_2d, 6, num_of_samples);
 
 	read_adc_val(h2p_fifo_sink_ch_h_csr_addr, h2p_fifo_sink_ch_h_data_addr, adc_data);
-	store_data (adc_data, data_bank, sw_num, 7, num_of_samples);
+	store_data_2d (adc_data, data_bank_2d, 7, num_of_samples);
 
 	printf("Completed Event: %d\n",sw_num);
 
