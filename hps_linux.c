@@ -121,7 +121,6 @@ void init() {
 	// turn on the ADC
 	cnt_out_val &= ~ADC_AD9276_STBY_msk;
 	cnt_out_val &= ~ADC_AD9276_PWDN_msk;
-	cnt_out_val |= CLK_EN_msk;
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
 	usleep(100000);
 
@@ -135,13 +134,14 @@ void init() {
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
 	usleep(100000);
 
-	// FSM reset
+	/* FSM reset
 	cnt_out_val |= (FSM_RESET_msk);
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
 	usleep(100);
 	cnt_out_val &= ~(FSM_RESET_msk);
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
 	usleep(300000);
+	*/
 
 }
 
@@ -292,7 +292,7 @@ void init_adc() {
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_CHIP_PORT_CONF_REG, 0b00011000); // reset
 
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_FLEX_GAIN_REG, AD9276_PGA_GAIN_21dB_VAL<<AD9276_PGA_GAIN_SHFT | AD9276_LNA_GAIN_15dB_VAL<<AD9276_LNA_GAIN_SHFT); // set PGA Gain to 21 dB, LNA Gain to 15.6 dB
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_ADJ_REG, AD9276_OUT_ADJ_TERM_000OHM_VAL<<AD9276_OUT_ADJ_TERM_SHFT); // set output driver to 100 ohms
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_ADJ_REG, AD9276_OUT_ADJ_TERM_200OHM_VAL<<AD9276_OUT_ADJ_TERM_SHFT); // set output driver to 100 ohms
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_PHS_REG, AD9276_OUT_PHS_060DEG_VAL); // set phase to 000 degrees
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 
@@ -489,13 +489,14 @@ void read_adc_val (void *channel_csr_addr, void *channel_data_addr, unsigned int
 
 }
 
-void store_data (unsigned int * adc_data, unsigned int data_bank[num_of_switches][num_of_channels][num_of_samples], unsigned int sw_num, unsigned int ch_num, unsigned int num_of_samples) {
+//void store_data (unsigned int * adc_data, unsigned int data_bank[num_of_switches][num_of_channels][num_of_samples], unsigned int sw_num, unsigned int ch_num, unsigned int num_of_samples) {
+void store_data (unsigned int * adc_data, unsigned int data_bank_2d[num_of_channels][num_of_samples], unsigned int sw_num, unsigned int ch_num, unsigned int num_of_samples) {
 	unsigned int ii;
 	for (ii=0; ii<num_of_samples/2; ii++) {
 		//data_bank[sw_num][ch_num][ii*2] = adc_data[ii] & 0xFFF; // ORIGINAL
 		//data_bank[sw_num][ch_num][ii*2+1] = (adc_data[ii]>>16) & 0xFFF; //ORIGINAL
-		data_bank[sw_num][ch_num][ii*2] = (adc_data[ii]>>2) & 0xFFF; // SHIFTED FROM ORIGINAL
-		data_bank[sw_num][ch_num][ii*2+1] = ((adc_data[ii]>>16)>>2) & 0xFFF; //SHIFTED FROM ORIGINAL
+		data_bank_2d[ch_num][ii*2] = (adc_data[ii]>>2) & 0xFFF; // SHIFTED FROM ORIGINAL
+		data_bank_2d[ch_num][ii*2+1] = ((adc_data[ii]>>16)>>2) & 0xFFF; //SHIFTED FROM ORIGINAL
 	}
 }
 
@@ -543,13 +544,11 @@ int main (){
 	// Initialize system
     init();
 
-	read_adc_id();
-
-
-
     // init_beamformer();
-    // old_init_adc();
-    init_adc();
+
+	read_adc_id();
+    old_init_adc();
+    // init_adc();
 
     alt_write_word( h2p_adc_start_pulselength_addr , 10 );
     alt_write_word( h2p_adc_samples_per_echo_addr ,  num_of_samples);
@@ -561,71 +560,45 @@ int main (){
 
     usleep(200000);
 
+	// tx_enable fire
+	cnt_out_val |= BF_TX_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
+	usleep(10000);
+	cnt_out_val &= (~BF_TX_EN_msk);
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
+	usleep(10000);
 
+	// pulser off
+	//usleep(200000);
+	//cnt_out_val &= (~PULSER_EN_msk);
+	//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
 
-	//for (sw_num=0; sw_num < num_of_switches; sw_num++) {
-    //while(1){
+	read_adc_val(h2p_fifo_sink_ch_a_csr_addr, h2p_fifo_sink_ch_a_data_addr, adc_data);
+	store_data (adc_data, data_bank, sw_num, 0, num_of_samples);
 
-		// write mux
-		// alt_write_word(h2p_mux_control_addr , ((1<<sw_num) & 0x7FF));
+	read_adc_val(h2p_fifo_sink_ch_b_csr_addr, h2p_fifo_sink_ch_b_data_addr, adc_data);
+	store_data (adc_data, data_bank, sw_num, 1, num_of_samples);
 
-		// tx_path on
-		//cnt_out_val |= tx_path_en_MSK;
-		//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
-		//usleep(100000);
+	read_adc_val(h2p_fifo_sink_ch_c_csr_addr, h2p_fifo_sink_ch_c_data_addr, adc_data);
+	store_data (adc_data, data_bank, sw_num, 2, num_of_samples);
 
-		// sw_off on
-		//cnt_out_val |= sw_off_MSK;
-		//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
-		//usleep(100000);
+	read_adc_val(h2p_fifo_sink_ch_d_csr_addr, h2p_fifo_sink_ch_d_data_addr, adc_data);
+	store_data (adc_data, data_bank, sw_num, 3, num_of_samples);
 
-		// pulser on
-		//cnt_out_val |= PULSER_EN_msk;
-		//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
-		//usleep(200000);
+	read_adc_val(h2p_fifo_sink_ch_e_csr_addr, h2p_fifo_sink_ch_e_data_addr, adc_data);
+	store_data (adc_data, data_bank, sw_num, 4, num_of_samples);
 
-		// tx_enable fire
-		cnt_out_val |= BF_TX_EN_msk;
-		alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
-		usleep(10000);
-		cnt_out_val &= (~BF_TX_EN_msk);
-		alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
-		usleep(10000);
+	read_adc_val(h2p_fifo_sink_ch_f_csr_addr, h2p_fifo_sink_ch_f_data_addr, adc_data);
+	store_data (adc_data, data_bank, sw_num, 5, num_of_samples);
 
-		// pulser off
-		//usleep(200000);
-		//cnt_out_val &= (~PULSER_EN_msk);
-		//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
+	read_adc_val(h2p_fifo_sink_ch_g_csr_addr, h2p_fifo_sink_ch_g_data_addr, adc_data);
+	store_data (adc_data, data_bank, sw_num, 6, num_of_samples);
 
-		read_adc_val(h2p_fifo_sink_ch_a_csr_addr, h2p_fifo_sink_ch_a_data_addr, adc_data);
-		store_data (adc_data, data_bank, sw_num, 0, num_of_samples);
+	read_adc_val(h2p_fifo_sink_ch_h_csr_addr, h2p_fifo_sink_ch_h_data_addr, adc_data);
+	store_data (adc_data, data_bank, sw_num, 7, num_of_samples);
 
-		read_adc_val(h2p_fifo_sink_ch_b_csr_addr, h2p_fifo_sink_ch_b_data_addr, adc_data);
-		store_data (adc_data, data_bank, sw_num, 1, num_of_samples);
+	printf("Completed Event: %d\n",sw_num);
 
-		read_adc_val(h2p_fifo_sink_ch_c_csr_addr, h2p_fifo_sink_ch_c_data_addr, adc_data);
-		store_data (adc_data, data_bank, sw_num, 2, num_of_samples);
-
-		read_adc_val(h2p_fifo_sink_ch_d_csr_addr, h2p_fifo_sink_ch_d_data_addr, adc_data);
-		store_data (adc_data, data_bank, sw_num, 3, num_of_samples);
-
-		read_adc_val(h2p_fifo_sink_ch_e_csr_addr, h2p_fifo_sink_ch_e_data_addr, adc_data);
-		store_data (adc_data, data_bank, sw_num, 4, num_of_samples);
-
-		read_adc_val(h2p_fifo_sink_ch_f_csr_addr, h2p_fifo_sink_ch_f_data_addr, adc_data);
-		store_data (adc_data, data_bank, sw_num, 5, num_of_samples);
-
-		read_adc_val(h2p_fifo_sink_ch_g_csr_addr, h2p_fifo_sink_ch_g_data_addr, adc_data);
-		store_data (adc_data, data_bank, sw_num, 6, num_of_samples);
-
-		read_adc_val(h2p_fifo_sink_ch_h_csr_addr, h2p_fifo_sink_ch_h_data_addr, adc_data);
-		store_data (adc_data, data_bank, sw_num, 7, num_of_samples);
-
-		printf("Completed Event: %d\n",sw_num);
-
-	//}
-
-	// write_data_bank(data_bank);
 	write_data_2d (data_bank_2d);
 
 	// turn power off
