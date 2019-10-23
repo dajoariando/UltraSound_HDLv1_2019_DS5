@@ -28,7 +28,7 @@
 #include "functions/AlteraIP/altera_avalon_fifo_regs.h"
 
 // parameters
-unsigned int num_of_samples = 8000;
+unsigned int num_of_samples = 100;
 const unsigned int num_of_switches = 11;
 const unsigned int num_of_channels = 8;
 
@@ -293,7 +293,7 @@ void init_adc() {
 
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_FLEX_GAIN_REG, AD9276_PGA_GAIN_21dB_VAL<<AD9276_PGA_GAIN_SHFT | AD9276_LNA_GAIN_15dB_VAL<<AD9276_LNA_GAIN_SHFT); // set PGA Gain to 21 dB, LNA Gain to 15.6 dB
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_ADJ_REG, AD9276_OUT_ADJ_TERM_200OHM_VAL<<AD9276_OUT_ADJ_TERM_SHFT); // set output driver to 100 ohms
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_PHS_REG, AD9276_OUT_PHS_060DEG_VAL); // set phase to 000 degrees
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_PHS_REG, AD9276_OUT_PHS_000DEG_VAL); // set phase to 000 degrees
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 
 	// filter setup
@@ -310,16 +310,24 @@ void init_adc() {
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_MODE_REG, AD9276_OUT_MODE_INVERT_EN_MSK); // invert all selected channel
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, 0x00); // reset the testio
 
-	// write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_10_BITTOG_VAL); // select testpattern
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_USR_INPUT_VAL); // user input test
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_LSB_REG, 0x1); // user input values
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_MSB_REG, 0x0); // user input values
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_CHCKBOARD_VAL); // select testpattern
+	// write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_USR_INPUT_VAL); // user input test
+	// write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_LSB_REG, 0x1); // user input values
+	// write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_MSB_REG, 0x0); // user input values
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 
 	//write_ad9276_spi (AD9276_SPI_RD, AD9276_OUT_ADJ_REG, 0x00);		// check output driver termination of selected channel
 	//write_ad9276_spi (AD9276_SPI_RD, AD9276_FLEX_GAIN_REG, 0x00);	// check flex_gain of selected channel
 	//write_ad9276_spi (AD9276_SPI_RD, AD9276_OUT_PHS_REG, 0x00);		// check output_phase
 
+	usleep(10000);
+}
+
+void adc_wr_patt (uint16_t val) {
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_USR_INPUT_VAL); // user input test
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_LSB_REG, (uint8_t)(val & 0xFF)); // user input values
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_MSB_REG, (uint8_t)((val>>8) & 0xFF)); // user input values
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 	usleep(10000);
 }
 
@@ -499,8 +507,8 @@ void store_data (unsigned int * adc_data, unsigned int data_bank[num_of_switches
 void store_data_2d (unsigned int * adc_data, unsigned int data_bank_2d[num_of_channels][num_of_samples], unsigned int ch_num, unsigned int num_of_samples) {
 	unsigned int ii;
 	for (ii=0; ii<num_of_samples/2; ii++) {
-		data_bank_2d[ch_num][ii*2] = (adc_data[ii]>>2) & 0xFFF; // SHIFTED FROM ORIGINAL
-		data_bank_2d[ch_num][ii*2+1] = ((adc_data[ii]>>16)>>2) & 0xFFF; //SHIFTED FROM ORIGINAL
+		data_bank_2d[ch_num][ii*2] = adc_data[ii] & 0xFFF; // SHIFTED FROM ORIGINAL
+		data_bank_2d[ch_num][ii*2+1] = (adc_data[ii]>>16) & 0xFFF; //SHIFTED FROM ORIGINAL
 	}
 }
 
@@ -544,7 +552,9 @@ void write_data_2d (unsigned int data_bank_2d[num_of_channels][num_of_samples]) 
 
 }
 
-int main (){
+int main (int argc, char * argv[]){
+
+	uint16_t val = atoi(argv[1]);
 
 	// Initialize system
     init();
@@ -554,6 +564,7 @@ int main (){
 	read_adc_id();
     // old_init_adc();
     init_adc();
+    adc_wr_patt (val);
 
     alt_write_word( h2p_adc_start_pulselength_addr , 10 );
     alt_write_word( h2p_adc_samples_per_echo_addr ,  num_of_samples);
