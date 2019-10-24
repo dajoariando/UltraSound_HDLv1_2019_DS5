@@ -148,8 +148,19 @@ void init() {
 void leave() {
 	// turn of the ADC
 	cnt_out_val |= ADC_AD9276_STBY_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
 	cnt_out_val |= ADC_AD9276_PWDN_msk;
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+
+	// turn power off
+	cnt_out_val &= ~POS_5V_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	cnt_out_val &= ~NEG_5V_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	cnt_out_val &= ~NEG_48V_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+	cnt_out_val &= ~POS_48V_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
 
     close(fd_dev_mem);
 
@@ -308,114 +319,30 @@ void init_adc() {
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_IDX_1_REG, AD9276_CH_A_CMD_EN_MSK|AD9276_CH_B_CMD_EN_MSK|AD9276_CH_C_CMD_EN_MSK|AD9276_CH_D_CMD_EN_MSK); // select channel A-D
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_IDX_2_REG, AD9276_CH_E_CMD_EN_MSK|AD9276_CH_F_CMD_EN_MSK|AD9276_CH_G_CMD_EN_MSK|AD9276_CH_H_CMD_EN_MSK); // select channel E-H
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_MODE_REG, AD9276_OUT_MODE_INVERT_EN_MSK); // invert all selected channel
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, 0x00); // reset the testio
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, 0x00); // disable test I/O
 
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_CHCKBOARD_VAL); // select testpattern
-	// write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_USR_INPUT_VAL); // user input test
-	// write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_LSB_REG, 0x1); // user input values
-	// write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_MSB_REG, 0x0); // user input values
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
+	// write pattern (comment these 2 lines to disable)
+	// write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_PNSEQ_LONG_VAL); // select testpattern
+	// write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 
 	//write_ad9276_spi (AD9276_SPI_RD, AD9276_OUT_ADJ_REG, 0x00);		// check output driver termination of selected channel
-	//write_ad9276_spi (AD9276_SPI_RD, AD9276_FLEX_GAIN_REG, 0x00);	// check flex_gain of selected channel
+	//write_ad9276_spi (AD9276_SPI_RD, AD9276_FLEX_GAIN_REG, 0x00);		// check flex_gain of selected channel
 	//write_ad9276_spi (AD9276_SPI_RD, AD9276_OUT_PHS_REG, 0x00);		// check output_phase
 
 	usleep(10000);
 }
 
-void adc_wr_patt (uint16_t val) {
+void adc_wr_testval (uint16_t val1, uint16_t val2) { // write test value for the ADC output
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_TESTIO_REG, AD9276_OUT_TEST_USR_INPUT_VAL); // user input test
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_LSB_REG, (uint8_t)(val & 0xFF)); // user input values
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_MSB_REG, (uint8_t)((val>>8) & 0xFF)); // user input values
+
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_LSB_REG, (uint8_t)(val1& 0xFF)); // user input values
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT1_MSB_REG, (uint8_t)((val1>>8) & 0xFF)); // user input values
+
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT2_LSB_REG, (uint8_t)(val2 & 0xFF)); // user input values
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_USR_PATT2_MSB_REG, (uint8_t)((val2>>8) & 0xFF)); // user input values
+
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 	usleep(10000);
-}
-
-void old_init_adc() {
-	unsigned int command, data;
-	unsigned int comm, addr;
-
-	comm = (AD9276_SPI_WR<<7) | AD9276_1BYTE_DATA;
-
-	//addr = 0x04;
-	//command = (comm<<16) | (addr<<8) | 0x0F; // select data channel E-H
-	//data = write_adc_spi (command);
-	//printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	//addr = 0x05;
-	//command = (comm<<16) | (addr<<8) | 0x0F; // select data channel A-D
-	//data = write_adc_spi (command);
-	//printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	addr = 0x11;
-	command = (comm<<16) | (addr<<8) | (0x00); // set PGA Gain to 21 dB, LNA Gain to 15.6 dB
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	addr = 0xFF;
-	command = (comm<<16) | (addr<<8) | (0x01); // update the device
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	addr = 0x15;
-	command = (comm<<16) | (addr<<8) | (0x02<<4); // set output driver to 100 ohms
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	addr = 0xFF;
-	command = (comm<<16) | (addr<<8) | (0x01); // update the device
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	addr = 0x16;
-	command = (comm<<16) | (addr<<8) | (0x08); // set output phase to 480 degrees
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	addr = 0xFF;
-	command = (comm<<16) | (addr<<8) | (0x01); // update the device
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	// read register
-	comm = (AD9276_SPI_WR<<7) | AD9276_1BYTE_DATA;
-
-	addr = 0x05;
-	command = (comm<<16) | (addr<<8) | 0x01; // select data channel A
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	comm = (AD9276_SPI_RD<<7) | AD9276_1BYTE_DATA;
-
-	addr = 0x15;
-	command = (comm<<16) | (addr<<8) | 0x00; // read channel A termination status
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	addr = 0x05;
-	command = (comm<<16) | (addr<<8) | 0x01; // select data channel A
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	comm = (AD9276_SPI_RD<<7) | AD9276_1BYTE_DATA;
-
-	addr = 0x11;
-	command = (comm<<16) | (addr<<8) | 0x00; // read channel A Gain status
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	addr = 0x05;
-	command = (comm<<16) | (addr<<8) | 0x01; // select data channel A
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
-	comm = (AD9276_SPI_RD<<7) | AD9276_1BYTE_DATA;
-
-	addr = 0x16;
-	command = (comm<<16) | (addr<<8) | 0x00; // read channel A Phase status
-	data = write_adc_spi (command);
-	printf("command = 0x%06x -> datain = 0x%06x\n", command, data);
-
 }
 
 void init_beamformer() {
@@ -497,18 +424,12 @@ void read_adc_val (void *channel_csr_addr, void *channel_data_addr, unsigned int
 
 }
 
-void store_data (unsigned int * adc_data, unsigned int data_bank[num_of_switches][num_of_channels][num_of_samples], unsigned int sw_num, unsigned int ch_num, unsigned int num_of_samples) {
-	unsigned int ii;
-	for (ii=0; ii<num_of_samples/2; ii++) {
-		data_bank[sw_num][ch_num][ii*2] = adc_data[ii] & 0xFFF; // ORIGINAL
-		data_bank[sw_num][ch_num][ii*2+1] = (adc_data[ii]>>16) & 0xFFF; //ORIGINAL
-	}
-}
+
 void store_data_2d (unsigned int * adc_data, unsigned int data_bank_2d[num_of_channels][num_of_samples], unsigned int ch_num, unsigned int num_of_samples) {
 	unsigned int ii;
 	for (ii=0; ii<num_of_samples/2; ii++) {
-		data_bank_2d[ch_num][ii*2] = adc_data[ii] & 0xFFF; // SHIFTED FROM ORIGINAL
-		data_bank_2d[ch_num][ii*2+1] = (adc_data[ii]>>16) & 0xFFF; //SHIFTED FROM ORIGINAL
+		data_bank_2d[ch_num][ii*2] = adc_data[ii] & 0xFFF;
+		data_bank_2d[ch_num][ii*2+1] = (adc_data[ii]>>16) & 0xFFF;
 	}
 }
 
@@ -544,17 +465,20 @@ void write_data_2d (unsigned int data_bank_2d[num_of_channels][num_of_samples]) 
 
 	for (jj=0; jj<num_of_channels; jj++) {
 		for (kk=0; kk<num_of_samples; kk++) {
-			fprintf(fptr, "%d,", data_bank_2d[jj][kk] & 0xFFF);
+			fprintf(fptr, "%d", data_bank_2d[jj][kk] & 0xFFF);
+			if (kk!= num_of_samples-1) { // this is to avoid generating COMMA at the end of the file
+				fprintf(fptr, ",");
+			}
 		}
 		fprintf(fptr, "\n");
 	}
-	fprintf(fptr, "\n");
 
 }
 
 int main (int argc, char * argv[]){
 
-	uint16_t val = atoi(argv[1]);
+	uint16_t val1 = atoi(argv[1]);
+	uint16_t val2 = atoi(argv[2]);
 
 	// Initialize system
     init();
@@ -562,14 +486,12 @@ int main (int argc, char * argv[]){
     // init_beamformer();
 
 	read_adc_id();
-    // old_init_adc();
     init_adc();
-    adc_wr_patt (val);
+    // adc_wr_testval (val1, val2);
 
     alt_write_word( h2p_adc_start_pulselength_addr , 10 );
     alt_write_word( h2p_adc_samples_per_echo_addr ,  num_of_samples);
 
-    unsigned int data_bank[num_of_switches][num_of_channels][num_of_samples];
     unsigned int data_bank_2d[num_of_channels][num_of_samples];
     unsigned int adc_data [num_of_samples]; // data for 1 acquisition
     char sw_num = 0;
@@ -617,15 +539,7 @@ int main (int argc, char * argv[]){
 
 	write_data_2d (data_bank_2d);
 
-	// turn power off
-	cnt_out_val &= ~POS_5V_EN_msk;
-	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
-	cnt_out_val &= ~NEG_5V_EN_msk;
-	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
-	cnt_out_val &= ~NEG_48V_EN_msk;
-	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
-	cnt_out_val &= ~POS_48V_EN_msk;
-	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+
 
     // exit program
     leave();
