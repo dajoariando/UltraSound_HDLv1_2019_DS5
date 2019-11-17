@@ -1044,7 +1044,36 @@
 #define SYSID_QSYS_SPAN 8
 #define SYSID_QSYS_END 0x517
 #define SYSID_QSYS_ID 2899645186
-#define SYSID_QSYS_TIMESTAMP 1573338783
+#define SYSID_QSYS_TIMESTAMP 1573947529
+
+/*
+ * Macros for device 'mux_spi', class 'altera_avalon_spi'
+ * The macros are prefixed with 'MUX_SPI_'.
+ * The prefix is the slave descriptor.
+ */
+#define MUX_SPI_COMPONENT_TYPE altera_avalon_spi
+#define MUX_SPI_COMPONENT_NAME mux_spi
+#define MUX_SPI_BASE 0x520
+#define MUX_SPI_SPAN 32
+#define MUX_SPI_END 0x53f
+#define MUX_SPI_IRQ 1
+#define MUX_SPI_CLOCKMULT 1
+#define MUX_SPI_CLOCKPHASE 0
+#define MUX_SPI_CLOCKPOLARITY 0
+#define MUX_SPI_CLOCKUNITS "Hz"
+#define MUX_SPI_DATABITS 8
+#define MUX_SPI_DATAWIDTH 16
+#define MUX_SPI_DELAYMULT "1.0E-9"
+#define MUX_SPI_DELAYUNITS "ns"
+#define MUX_SPI_EXTRADELAY 0
+#define MUX_SPI_INSERT_SYNC 0
+#define MUX_SPI_ISMASTER 1
+#define MUX_SPI_LSBFIRST 0
+#define MUX_SPI_NUMSLAVES 1
+#define MUX_SPI_PREFIX "spi_"
+#define MUX_SPI_SYNC_REG_DEPTH 2
+#define MUX_SPI_TARGETCLOCK 128000
+#define MUX_SPI_TARGETSSDELAY "0.0"
 
 /*
  * Macros for device 'jtag_uart', class 'altera_avalon_jtag_uart'

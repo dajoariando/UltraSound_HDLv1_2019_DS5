@@ -56,6 +56,7 @@ void *h2p_button_addr= NULL;
 // void *h2p_adcspi_addr = NULL;
 
 volatile unsigned int *h2p_adcspi_addr 					= NULL; // gpio for dac (spi)
+volatile unsigned int *h2p_muxspi_addr 					= NULL; // gpio for dac (spi)
 
 volatile unsigned int *h2p_fifo_sink_ch_a_csr_addr			= NULL; // ADC streaming FIFO status address
 volatile unsigned int *h2p_fifo_sink_ch_b_csr_addr			= NULL; // ADC streaming FIFO status address
@@ -81,6 +82,11 @@ volatile unsigned int *h2p_lm96570_spi_in1_addr			= NULL;
 volatile unsigned int *h2p_lm96570_spi_in0_addr			= NULL;
 
 volatile unsigned int *h2p_adc_start_pulselength_addr 	= NULL;
+
+volatile unsigned int *h2p_pulse_damp_len				= NULL;
+volatile unsigned int *h2p_pulse_pll_reconfig			= NULL;
+volatile unsigned int *h2p_pulse_tx_len					= NULL;
+volatile unsigned int *h2p_pulse_init_delay				= NULL;
 
 volatile unsigned int *h2p_mux_control_addr 	= NULL;
 
