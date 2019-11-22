@@ -25,7 +25,11 @@
 #include "./soc_variables/general.h"
 #include "./soc_variables/lm96570_vars.h"
 #include "./soc_variables/ad9276_vars.h"
-#include "functions/AlteraIP/altera_avalon_fifo_regs.h"
+#include "./functions/AlteraIP/altera_avalon_fifo_regs.h"
+#include "./functions/reconfig_functions.h"
+#include "./functions/pll_param_generator.h"
+#include "./functions/gnrl_calc.h"
+
 
 // parameters
 unsigned int num_of_samples = 1000;
@@ -112,6 +116,9 @@ void init() {
 	h2p_pulse_tx_len				= h2f_lw_axi_master + PULSE_TX_LEN_BASE;
 	h2p_pulse_init_delay			= h2f_lw_axi_master + PULSE_INIT_DELAY_BASE;
 
+	h2p_clksync_plen				= h2f_lw_axi_master + CLKSYNC_PLEN_BASE;
+	h2p_mux_delay					= h2f_lw_axi_master + MUX_DELAY_BASE;
+	h2p_pll_sync_reconfig			= h2f_lw_axi_master + PLL_SYNC_RECONFIG_BASE;
 
 	// write default value for cnt_out
 	cnt_out_val = CNT_OUT_DEFAULT;
@@ -139,7 +146,20 @@ void init() {
 	cnt_out_val &= ~(FSM_RESET_msk);
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
 	usleep(300000);
-	//
+
+	// set pll settings for pll sync
+	Reconfig_Mode(h2p_pll_sync_reconfig,1); // polling mode for main pll
+	Set_PLL (h2p_pll_sync_reconfig, 0, 200.0, 0.5, DISABLE_MESSAGE);
+	// Reset_PLL (h2p_ctrl_out_addr, PLL_NMR_SYS_RST_ofst, ctrl_out);
+	Set_DPS (h2p_pll_sync_reconfig, 0, 0, DISABLE_MESSAGE);
+	Wait_PLL_To_Lock (h2p_general_cnt_int_addr, CLK_SYNC_locked_ofst);
+
+	// set pll settings for pll pulser
+	Reconfig_Mode(h2p_pulse_pll_reconfig,1); // polling mode for main pll
+	Set_PLL (h2p_pulse_pll_reconfig, 0, 4.0, 0.5, DISABLE_MESSAGE);
+	// Reset_PLL (h2p_ctrl_out_addr, PLL_NMR_SYS_RST_ofst, ctrl_out);
+	Set_DPS (h2p_pulse_pll_reconfig, 0, 0, DISABLE_MESSAGE);
+	Wait_PLL_To_Lock (h2p_general_cnt_int_addr, pulse_pll_locked_ofst);
 
 }
 
@@ -220,7 +240,6 @@ void leave() {
 	h2p_lm96570_spi_in2_addr		= NULL;
 	h2p_lm96570_spi_in1_addr		= NULL;
 	h2p_lm96570_spi_in0_addr		= NULL;
-	h2p_mux_control_addr			= NULL;
 	
 	printf("\nULTRASOUND SYSTEM STOPS!\n");
 }
@@ -451,50 +470,82 @@ int main (int argc, char * argv[]){
 	uint16_t val1 = atoi(argv[1]);
 	uint16_t val2 = atoi(argv[2]);
 
+	double ADC_freq = 30.0;
+	double Pulse_freq = 4.0;
+	double ClockSync_freq = 200.0;
+
+	unsigned int data_bank_2d[num_of_channels][num_of_samples];
+	unsigned int adc_data [num_of_samples]; // data for 1 acquisition
+	char sw_num = 0;
+	usleep(200000);
+
 	// Initialize system
     init();
-
-    // init_beamformer();
 
 	read_adc_id();
     init_adc();
     // adc_wr_testval (val1, val2);
 
-    alt_write_word( h2p_adc_start_pulselength_addr , 10 );
-    alt_write_word( h2p_adc_samples_per_echo_addr ,  num_of_samples);
+    // parameter
+    double adc_init_delay_us = 10;
+    double pulse_damp_us = 100;
+    double mux_delay = 5;
 
-    unsigned int data_bank_2d[num_of_channels][num_of_samples];
-    unsigned int adc_data [num_of_samples]; // data for 1 acquisition
-    char sw_num = 0;
+    // adc parameter
+    alt_write_word( h2p_adc_start_pulselength_addr , 10 );									// the length of ADC_START pulse
+    alt_write_word( h2p_adc_samples_per_echo_addr ,  num_of_samples);						// number of ADC samples
+    alt_write_word (h2p_init_delay_addr, us_to_clk_cycles(adc_init_delay_us,ADC_freq));		// the ADC init delay
 
-    usleep(200000);
+    // pulse parameter
+    alt_write_word( h2p_pulse_damp_len, us_to_clk_cycles(pulse_damp_us,Pulse_freq));		// the length of damping period after pulse
+    alt_write_word( h2p_pulse_tx_len , 5 );													// the length of tx pulse
+    alt_write_word( h2p_pulse_init_delay , 10 );											// the length of delay before the pulse
+    alt_write_word( h2p_mux_delay , us_to_clk_cycles(mux_delay,Pulse_freq) );				// the delay after pulse, before activating the MUX for RX reception
 
-    /* MUX TEST
-    // disable all mux signal
-    cnt_out_val &= ~MUX_SET_msk;
-    cnt_out_val &= ~MUX_CLR_msk;
-    cnt_out_val |= MUX_LE_msk;
-    alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
-    usleep(100);
+    // clksync parameter
+    alt_write_word( h2p_clksync_plen , us_to_clk_cycles(1/Pulse_freq*10,ClockSync_freq) );	// the length of the clock_sync pulse length (must be longer than the slowest clock period)
 
-    cnt_out_val |= MUX_SET_msk;
-    alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
-    usleep(100);
-    cnt_out_val &= ~MUX_SET_msk;
+
+    // SETTINGS FOR PULSER
+    // set settings for mode
+	cnt_out_val |= MAX14808_MODE0_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+	// set settings for sync
+	cnt_out_val &= ~MAX14808_SYNC_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+	// set settings for current mode
+	// cnt_out_val |= (MAX14808_CC1_ofst);
+	// alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	// usleep(100);
+	// enable TX_OE
+	cnt_out_val &= ~TX_OE_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+	// disable pulse_start
+	cnt_out_val &= ~pulse_start_msk;
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
 	usleep(100);
 
-	wr_14866(0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x02,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x04,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x10,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x40,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x80,0x00,0x00,0x00);
-	wr_14866(0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00);
-	*/
+	// SETTINGS FOR MUX
+	// disable all mux signal
+	cnt_out_val &= ~MUX_SET_msk;
+	cnt_out_val &= ~MUX_CLR_msk;
+	cnt_out_val |= MUX_LE_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+
+    // set mux
+    wr_14866(0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01);
+
+    // tx_enable fire
+	cnt_out_val |= BF_TX_EN_msk;
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the sequence
+	usleep(1);
+	cnt_out_val &= (~BF_TX_EN_msk);
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the sequence
+	usleep(1);
 
     /* PULSER TEST
     // set settings for mode
@@ -533,7 +584,7 @@ int main (int argc, char * argv[]){
 	usleep(1000);
 	*/
 
-	// ADC TEST
+	/* ADC TEST
 	// tx_enable fire
 	cnt_out_val |= BF_TX_EN_msk;
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the beamformer SPI
@@ -547,7 +598,7 @@ int main (int argc, char * argv[]){
 	//cnt_out_val &= (~PULSER_EN_msk);
 	//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
 
-	//
+	*/
 	read_adc_val(h2p_fifo_sink_ch_a_csr_addr, h2p_fifo_sink_ch_a_data_addr, adc_data);
 	store_data_2d (adc_data, data_bank_2d, 0, num_of_samples);
 
@@ -573,11 +624,52 @@ int main (int argc, char * argv[]){
 	store_data_2d (adc_data, data_bank_2d, 7, num_of_samples);
 
 	printf("Completed Event: %d\n",sw_num);
-
+	/*
 	write_data_2d (data_bank_2d);
-	//
+	*/
+
+	/* MUX TEST
+	// disable all mux signal
+	cnt_out_val &= ~MUX_SET_msk;
+	cnt_out_val &= ~MUX_CLR_msk;
+	cnt_out_val |= MUX_LE_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+
+	cnt_out_val |= MUX_SET_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+
+	cnt_out_val &= ~MUX_SET_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+
+	wr_14866(0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0x02,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0x04,0x00,0x00,0x00);
+
+	cnt_out_val |= MUX_SET_msk;
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+
+	cnt_out_val &= ~MUX_SET_msk;
+	cnt_out_val &= ~MUX_LE_msk;		// set LE high after finishing update
+	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
+
+	wr_14866(0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0x10,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0x40,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0x80,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00);
 
 
+
+	wr_14866(0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00);
+	wr_14866(0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00);
+	*/
 
     // exit program
     leave();

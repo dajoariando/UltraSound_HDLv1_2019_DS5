@@ -261,7 +261,7 @@
 #define PULSE_DAMP_LEN_BIT_CLEARING_EDGE_REGISTER 0
 #define PULSE_DAMP_LEN_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define PULSE_DAMP_LEN_CAPTURE 0
-#define PULSE_DAMP_LEN_DATA_WIDTH 8
+#define PULSE_DAMP_LEN_DATA_WIDTH 32
 #define PULSE_DAMP_LEN_DO_TEST_BENCH_WIRING 0
 #define PULSE_DAMP_LEN_DRIVEN_SIM_VALUE 0
 #define PULSE_DAMP_LEN_EDGE_TYPE NONE
@@ -824,7 +824,7 @@
 #define PULSE_TX_LEN_BIT_CLEARING_EDGE_REGISTER 0
 #define PULSE_TX_LEN_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define PULSE_TX_LEN_CAPTURE 0
-#define PULSE_TX_LEN_DATA_WIDTH 8
+#define PULSE_TX_LEN_DATA_WIDTH 32
 #define PULSE_TX_LEN_DO_TEST_BENCH_WIRING 0
 #define PULSE_TX_LEN_DRIVEN_SIM_VALUE 0
 #define PULSE_TX_LEN_EDGE_TYPE NONE
@@ -848,7 +848,7 @@
 #define PULSE_INIT_DELAY_BIT_CLEARING_EDGE_REGISTER 0
 #define PULSE_INIT_DELAY_BIT_MODIFYING_OUTPUT_REGISTER 0
 #define PULSE_INIT_DELAY_CAPTURE 0
-#define PULSE_INIT_DELAY_DATA_WIDTH 8
+#define PULSE_INIT_DELAY_DATA_WIDTH 32
 #define PULSE_INIT_DELAY_DO_TEST_BENCH_WIRING 0
 #define PULSE_INIT_DELAY_DRIVEN_SIM_VALUE 0
 #define PULSE_INIT_DELAY_EDGE_TYPE NONE
@@ -1044,7 +1044,7 @@
 #define SYSID_QSYS_SPAN 8
 #define SYSID_QSYS_END 0x517
 #define SYSID_QSYS_ID 2899645186
-#define SYSID_QSYS_TIMESTAMP 1573947529
+#define SYSID_QSYS_TIMESTAMP 1574371979
 
 /*
  * Macros for device 'mux_spi', class 'altera_avalon_spi'
@@ -1074,6 +1074,65 @@
 #define MUX_SPI_SYNC_REG_DEPTH 2
 #define MUX_SPI_TARGETCLOCK 128000
 #define MUX_SPI_TARGETSSDELAY "0.0"
+
+/*
+ * Macros for device 'clksync_plen', class 'altera_avalon_pio'
+ * The macros are prefixed with 'CLKSYNC_PLEN_'.
+ * The prefix is the slave descriptor.
+ */
+#define CLKSYNC_PLEN_COMPONENT_TYPE altera_avalon_pio
+#define CLKSYNC_PLEN_COMPONENT_NAME clksync_plen
+#define CLKSYNC_PLEN_BASE 0x540
+#define CLKSYNC_PLEN_SPAN 16
+#define CLKSYNC_PLEN_END 0x54f
+#define CLKSYNC_PLEN_BIT_CLEARING_EDGE_REGISTER 0
+#define CLKSYNC_PLEN_BIT_MODIFYING_OUTPUT_REGISTER 0
+#define CLKSYNC_PLEN_CAPTURE 0
+#define CLKSYNC_PLEN_DATA_WIDTH 32
+#define CLKSYNC_PLEN_DO_TEST_BENCH_WIRING 0
+#define CLKSYNC_PLEN_DRIVEN_SIM_VALUE 0
+#define CLKSYNC_PLEN_EDGE_TYPE NONE
+#define CLKSYNC_PLEN_FREQ 50000000
+#define CLKSYNC_PLEN_HAS_IN 0
+#define CLKSYNC_PLEN_HAS_OUT 1
+#define CLKSYNC_PLEN_HAS_TRI 0
+#define CLKSYNC_PLEN_IRQ_TYPE NONE
+#define CLKSYNC_PLEN_RESET_VALUE 0
+
+/*
+ * Macros for device 'mux_delay', class 'altera_avalon_pio'
+ * The macros are prefixed with 'MUX_DELAY_'.
+ * The prefix is the slave descriptor.
+ */
+#define MUX_DELAY_COMPONENT_TYPE altera_avalon_pio
+#define MUX_DELAY_COMPONENT_NAME mux_delay
+#define MUX_DELAY_BASE 0x550
+#define MUX_DELAY_SPAN 16
+#define MUX_DELAY_END 0x55f
+#define MUX_DELAY_BIT_CLEARING_EDGE_REGISTER 0
+#define MUX_DELAY_BIT_MODIFYING_OUTPUT_REGISTER 0
+#define MUX_DELAY_CAPTURE 0
+#define MUX_DELAY_DATA_WIDTH 32
+#define MUX_DELAY_DO_TEST_BENCH_WIRING 0
+#define MUX_DELAY_DRIVEN_SIM_VALUE 0
+#define MUX_DELAY_EDGE_TYPE NONE
+#define MUX_DELAY_FREQ 50000000
+#define MUX_DELAY_HAS_IN 0
+#define MUX_DELAY_HAS_OUT 1
+#define MUX_DELAY_HAS_TRI 0
+#define MUX_DELAY_IRQ_TYPE NONE
+#define MUX_DELAY_RESET_VALUE 0
+
+/*
+ * Macros for device 'pll_sync_reconfig', class 'altera_pll_reconfig'
+ * The macros are prefixed with 'PLL_SYNC_RECONFIG_'.
+ * The prefix is the slave descriptor.
+ */
+#define PLL_SYNC_RECONFIG_COMPONENT_TYPE altera_pll_reconfig
+#define PLL_SYNC_RECONFIG_COMPONENT_NAME pll_sync_reconfig
+#define PLL_SYNC_RECONFIG_BASE 0x600
+#define PLL_SYNC_RECONFIG_SPAN 256
+#define PLL_SYNC_RECONFIG_END 0x6ff
 
 /*
  * Macros for device 'jtag_uart', class 'altera_avalon_jtag_uart'

@@ -84,11 +84,14 @@ volatile unsigned int *h2p_lm96570_spi_in0_addr			= NULL;
 volatile unsigned int *h2p_adc_start_pulselength_addr 	= NULL;
 
 volatile unsigned int *h2p_pulse_damp_len				= NULL;
-volatile unsigned int *h2p_pulse_pll_reconfig			= NULL;
+void *h2p_pulse_pll_reconfig			= NULL;
 volatile unsigned int *h2p_pulse_tx_len					= NULL;
 volatile unsigned int *h2p_pulse_init_delay				= NULL;
 
-volatile unsigned int *h2p_mux_control_addr 	= NULL;
+volatile unsigned int *h2p_clksync_plen					= NULL;
+volatile unsigned int *h2p_mux_delay					= NULL;
+void *h2p_pll_sync_reconfig			= NULL;
+
 
 
 void open_physical_memory_device();

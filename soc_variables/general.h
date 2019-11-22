@@ -70,12 +70,14 @@
 
 
 // INPUT
+#define CLK_SYNC_locked_ofst	(4)
 #define pulse_pll_locked_ofst	(3)
 #define MAX14808_THP_ofst      (2)
 #define FSM_DONE_ofst          (1)
 #define BF_SPI_DONE_ofst       (0)
 
-#define pulse_pll_locked_msk	(pulse_pll_locked_msk)
+#define CLK_SYNC_locked_msk		(1<< CLK_SYNC_locked_ofst)
+#define pulse_pll_locked_msk	(1<< pulse_pll_locked_msk)
 #define MAX14808_THP_msk       (1<<MAX14808_THP_ofst    )
 #define FSM_DONE_msk           (1<<FSM_DONE_ofst        )
 #define BF_SPI_DONE_msk        (1<<BF_SPI_DONE_ofst     )
@@ -91,3 +93,9 @@
 
 // default for output control signal
 #define CNT_OUT_DEFAULT 0b000000
+
+// general variable
+#define ENABLE_MESSAGE	1
+#define DISABLE_MESSAGE 0
+#define ENABLE 1
+#define DISABLE 0
