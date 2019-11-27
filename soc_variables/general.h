@@ -63,7 +63,7 @@
 #define LTC2640_CLR_n_msk           (1<<LTC2640_CLR_n_ofst       )
 #define ADC_AD9276_4LORESET_msk     (1<<ADC_AD9276_4LORESET_ofst )
 #define TX_OE_msk				    (1<<TX_OE_ofst				  )
-#define ADC_AD9276_PWDN_msk         (1<<ADC_AD9276_PWDN_ofst     )
+#define ADC_AD9276_PWDN_msk         (1<<ADC_AD9276_PWDN_ofst     ) // (CAREFUL! SOMETIMES PUTTING THE ADC TO STANDBY WOULD CAUSE IT TO CRASH)
 #define ADC_AD9276_STBY_msk         (1<<ADC_AD9276_STBY_ofst     )
 #define FSM_RESET_msk               (1<<FSM_RESET_ofst           )
 #define BF_TX_EN_msk                (1<<BF_TX_EN_ofst            )

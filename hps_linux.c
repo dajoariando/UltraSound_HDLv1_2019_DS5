@@ -123,18 +123,23 @@ void init() {
 	// write default value for cnt_out
 	cnt_out_val = CNT_OUT_DEFAULT;
 
+	// turn power on
+	cnt_out_val |= (NEG_5V_EN_msk);
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+
+	cnt_out_val |= (POS_5V_EN_msk);
+	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+
+	//cnt_out_val |= (NEG_48V_EN_msk | POS_48V_EN_msk);
+	//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
+
 	// turn on the ADC
 	cnt_out_val &= ~ADC_AD9276_STBY_msk;
 	cnt_out_val &= ~ADC_AD9276_PWDN_msk;
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
 	usleep(100000);
 
-	// turn power on
-	cnt_out_val |= (POS_5V_EN_msk | NEG_5V_EN_msk);
-	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
-	//cnt_out_val |= (NEG_48V_EN_msk | POS_48V_EN_msk);
-	//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
-
+	// enable clock output from the XTAL
 	cnt_out_val |= CLK_EN_msk;
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
 	usleep(100000);
@@ -142,7 +147,7 @@ void init() {
 	// FSM reset
 	cnt_out_val |= (FSM_RESET_msk);
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
-	usleep(100);
+	usleep(10);
 	cnt_out_val &= ~(FSM_RESET_msk);
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val);
 	usleep(300000);
@@ -172,9 +177,9 @@ void leave() {
 
 	// turn of the ADC
 	cnt_out_val |= ADC_AD9276_STBY_msk;
+	// cnt_out_val |= ADC_AD9276_PWDN_msk; // (CAREFUL! SOMETIMES THE ADC CANNOT WAKE UP AFTER PUT TO PWDN)
 	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
-	cnt_out_val |= ADC_AD9276_PWDN_msk;
-	alt_write_word( (h2p_general_cnt_out_addr) ,  cnt_out_val);
+	usleep(100);
 
 	// turn power off
 	cnt_out_val &= ~POS_5V_EN_msk;
@@ -467,12 +472,13 @@ void wr_14866 (unsigned char mux1, unsigned char mux2, unsigned char mux3, unsig
 
 int main (int argc, char * argv[]){
 
-	uint16_t val1 = atoi(argv[1]);
-	uint16_t val2 = atoi(argv[2]);
+	double adc_init_delay_us = atof(argv[1]);
+	double mux_delay = atof(argv[2]);
+	unsigned int ch_sel = atoi(argv[3]);
 
 	double ADC_freq = 30.0;
-	double Pulse_freq = 4.0;
-	double ClockSync_freq = 200.0;
+	double Pulse_freq = ADC_freq/6;
+	// double ClockSync_freq = 200.0;
 
 	unsigned int data_bank_2d[num_of_channels][num_of_samples];
 	unsigned int adc_data [num_of_samples]; // data for 1 acquisition
@@ -487,9 +493,9 @@ int main (int argc, char * argv[]){
     // adc_wr_testval (val1, val2);
 
     // parameter
-    double adc_init_delay_us = 10;
+    // double adc_init_delay_us = 10;
     double pulse_damp_us = 100;
-    double mux_delay = 5;
+    // double mux_delay = 5;
 
     // adc parameter
     alt_write_word( h2p_adc_start_pulselength_addr , 10 );									// the length of ADC_START pulse
@@ -503,7 +509,7 @@ int main (int argc, char * argv[]){
     alt_write_word( h2p_mux_delay , us_to_clk_cycles(mux_delay,Pulse_freq) );				// the delay after pulse, before activating the MUX for RX reception
 
     // clksync parameter
-    alt_write_word( h2p_clksync_plen , us_to_clk_cycles(1/Pulse_freq*10,ClockSync_freq) );	// the length of the clock_sync pulse length (must be longer than the slowest clock period)
+    // alt_write_word( h2p_clksync_plen , us_to_clk_cycles(1/Pulse_freq*10,ClockSync_freq) );	// the length of the clock_sync pulse length (must be longer than the slowest clock period)
 
 
     // SETTINGS FOR PULSER
@@ -537,15 +543,13 @@ int main (int argc, char * argv[]){
 	usleep(100);
 
     // set mux
-    wr_14866(0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01);
+    wr_14866(1<<ch_sel,1<<ch_sel,1<<ch_sel,1<<ch_sel,1<<ch_sel,1<<ch_sel,1<<ch_sel,1<<ch_sel);
 
     // tx_enable fire
 	cnt_out_val |= BF_TX_EN_msk;
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // start the sequence
-	usleep(1);
 	cnt_out_val &= (~BF_TX_EN_msk);
 	alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the sequence
-	usleep(1);
 
     /* PULSER TEST
     // set settings for mode
@@ -599,6 +603,8 @@ int main (int argc, char * argv[]){
 	//alt_write_word( h2p_general_cnt_out_addr ,  cnt_out_val); // stop the beamformer SPI
 
 	*/
+
+	while ( !( alt_read_word(h2p_general_cnt_int_addr) & FSM_DONE_msk ) ) ;
 	read_adc_val(h2p_fifo_sink_ch_a_csr_addr, h2p_fifo_sink_ch_a_data_addr, adc_data);
 	store_data_2d (adc_data, data_bank_2d, 0, num_of_samples);
 
@@ -624,9 +630,9 @@ int main (int argc, char * argv[]){
 	store_data_2d (adc_data, data_bank_2d, 7, num_of_samples);
 
 	printf("Completed Event: %d\n",sw_num);
-	/*
+
 	write_data_2d (data_bank_2d);
-	*/
+
 
 	/* MUX TEST
 	// disable all mux signal
