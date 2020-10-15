@@ -246,7 +246,7 @@ void leave() {
 	h2p_lm96570_spi_in1_addr		= NULL;
 	h2p_lm96570_spi_in0_addr		= NULL;
 	
-	printf("\nULTRASOUND SYSTEM STOPS!\n");
+	printf("\nULTRASOUND SYSTEM STOPPED!\n");
 }
 
 unsigned int write_adc_spi (unsigned int comm) {
@@ -308,8 +308,8 @@ void init_adc() {
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_OUT_PHS_REG, AD9276_OUT_PHS_000DEG_VAL); // set phase to 000 degrees
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 
-	// filter setup
-	write_ad9276_spi (AD9276_SPI_WR, AD9276_FLEX_FILT_REG, AD9276_FLEX_FILT_HPF_04PCTG_FLP_VAL); // set high-pass filter
+	// filter setup.
+	write_ad9276_spi (AD9276_SPI_WR, AD9276_FLEX_FILT_REG, AD9276_FLEX_FILT_HPF_32PCTG_FLP_VAL); // set high-pass filter
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_UPDT_REG, AD9276_SW_TRF_MSK); // update the device
 
 	write_ad9276_spi (AD9276_SPI_WR, AD9276_DEV_IDX_1_REG, AD9276_DCO_CMD_EN_MSK| AD9276_FCO_CMD_EN_MSK); // select DCO and FCO
@@ -411,10 +411,10 @@ void write_data_bank (unsigned int data_bank[num_of_switches][num_of_channels][n
 	}
 }
 
-void write_data_2d (unsigned int data_bank_2d[num_of_channels][num_of_samples]) {
+void write_data_2d (unsigned int data_bank_2d[num_of_channels][num_of_samples], char * filename) {
 	unsigned int jj, kk;
 
-	fptr = fopen("databank.txt", "w");
+	fptr = fopen(filename, "w");
 		if (fptr == NULL) {
 		printf("File does not exists \n");
 		return;
@@ -475,6 +475,7 @@ int main (int argc, char * argv[]){
 	double adc_init_delay_us = atof(argv[1]);
 	double mux_delay = atof(argv[2]);
 	unsigned int ch_sel = atoi(argv[3]);
+	char * filename = argv[4];
 
 	double ADC_freq = 30.0;
 	double Pulse_freq = ADC_freq/6;
@@ -631,7 +632,7 @@ int main (int argc, char * argv[]){
 
 	printf("Completed Event: %d\n",sw_num);
 
-	write_data_2d (data_bank_2d);
+	write_data_2d (data_bank_2d,filename);
 
 
 	/* MUX TEST
